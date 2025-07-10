@@ -16,34 +16,42 @@ TODO: Finish this test by...
 '''
 
 
-def test_patch_order_by_id():
-    # Step 1: Create a pet
+@pytest.fixture
+# create a pet
+def new_pet():
+    unique_id = uuid.uuid4().int >> 96
     pet_data = {
-        "id": 999,
-        "name": "Mochi",
+        "id": unique_id,
+        "name": f"Mochi-{unique_id}",
         "type": "dog",
         "status": "available"
     }
-    pet_response = api_helpers.post_api_data("/pets/", pet_data)
-    assert pet_response.status_code == 201
+    # run the request to create the pet and get the response code
+    response = api_helpers.post_api_data("/pets/", pet_data)
+    assert response.status_code == 201
+    return pet_data
 
-    # Step 2: Place an order for the pet
+
+@pytest.fixture
+# create an order
+def new_order(new_pet):
     order_data = {
-        "pet_id": pet_data["id"]
+        "pet_id": new_pet["id"]
     }
-    order_response = api_helpers.post_api_data("/store/order", order_data)
-    assert order_response.status_code == 201
+    # run the request to create the order and get the response code
+    response = api_helpers.post_api_data("/store/order", order_data)
+    assert response.status_code == 201
+    return response.json()
 
-    # Extract the order ID from the response
-    order = order_response.json()
-    validate(instance=order, schema=schemas.order)
-    order_id = order["id"]
 
-    # Step 3: Patch the order with a new status
+# patch the order
+def test_patch_order_by_id(new_order):
+    validate(instance=new_order, schema=schemas.order)
+    order_id = new_order["id"]
+    # run the patch request and get the response code
     updated_status = {"status": "sold"}
     patch_response = api_helpers.patch_api_data(f"/store/order/{order_id}", updated_status)
     assert patch_response.status_code == 200
-
-    # Validate the message
+    # verify the response message
     response_json = patch_response.json()
     assert_that(response_json["message"], contains_string("Order and pet status updated successfully"))
