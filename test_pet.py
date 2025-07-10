@@ -1,5 +1,6 @@
-from jsonschema import validate, ValidationError
 import pytest
+from jsonschema import validate
+from jsonschema.exceptions import ValidationError
 import schemas
 import api_helpers
 
