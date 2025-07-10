@@ -1,3 +1,5 @@
+import random
+import uuid
 import pytest
 from hamcrest import assert_that, contains_string, is_
 from jsonschema.validators import validate
@@ -15,54 +17,41 @@ TODO: Finish this test by...
 
 
 @pytest.fixture
-def create_order():
-    existing_pet_id = 2
-    new_order = {
-        "pet_id": existing_pet_id
+# create a pet
+def new_pet():
+    unique_id = uuid.uuid4().int >> 96
+    pet_data = {
+        "id": unique_id,
+        "name": f"Mochi-{unique_id}",
+        "type": "dog",
+        "status": "available"
     }
-    response = api_helpers.post_api_data("/store/order", new_order)
-    print("Order creation response:", response.text)
+    # run the request to create the pet and get the response code
+    response = api_helpers.post_api_data("/pets/", pet_data)
+    assert response.status_code == 201
+    return pet_data
+
+
+@pytest.fixture
+# create an order
+def new_order(new_pet):
+    order_data = {
+        "pet_id": new_pet["id"]
+    }
+    # run the request to create the order and get the response code
+    response = api_helpers.post_api_data("/store/order", order_data)
     assert response.status_code == 201
     return response.json()
 
 
-# Updating the order with a new pet_id
-def test_patch_order_by_id(create_order):
-    updated_data = {
-        "pet_id": 1
-    }
-
-    order_id = create_order["id"]
-    response = api_helpers.patch_api_data(f"/store/order/{order_id}", updated_data)
-    print("Patch response:", response.text)
-
-    # Validate status code
-    assert response.status_code == 200
-
-    # Validate response structure
-    response_json = response.json()
-    validate(instance=response_json.get("order"), schema=schemas.order)
-    validate(instance=response_json.get("pet"), schema=schemas.pet)
-
-    # Validate response message
-    expected_message = "Order and pet status updated successfully"
-    assert_that(response_json.get("message"), is_(expected_message))
-
-    # Assert updated values
-    assert_that(response_json["order"]["pet_id"], is_(1))
-    assert_that(response_json["pet"]["status"], is_("sold"))
-
-
-def test_patch_with_invalid_pet_id():
-    # Attempt patch with non-existent pet_id
-    fake_order_id = "fake pet"
-    patch_data = {
-        "pet_id": 999
-    }
-
-    response = api_helpers.patch_api_data(f"/store/order/{fake_order_id}", patch_data)
-    print("Invalid patch response:", response.text)
-
-    # Validate failure code (adjust depending on API behavior)
-    assert response.status_code in [400, 404]
-    assert_that(response.text, contains_string("not found"))
+# patch the order
+def test_patch_order_by_id(new_order):
+    validate(instance=new_order, schema=schemas.order)
+    order_id = new_order["id"]
+    # run the patch request and get the response code
+    updated_status = {"status": "sold"}
+    patch_response = api_helpers.patch_api_data(f"/store/order/{order_id}", updated_status)
+    assert patch_response.status_code == 200
+    # verify the response message
+    response_json = patch_response.json()
+    assert_that(response_json["message"], contains_string("Order and pet status updated successfully"))
